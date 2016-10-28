@@ -1,7 +1,10 @@
 let passport = require('passport')
 let wrap = require('nodeifyit')
 let User = require('../models/user')
-
+let LocalStrategy = require('passport-local')
+let localSigninStrategy = require('./local-signin')
+let localSignupStrategy = require('./local-signup')
+let FacebookStrategy = require('passport-facebook')
 // Handlers
 async function localAuthHandler(email, password) {
   let user = await User.promise.findOne({email})
@@ -57,26 +60,55 @@ function configure(CONFIG) {
   /**
    * Local Auth
    */
-  let localStrategy = new LocalStrategy({
-    usernameField: 'email', // Use "email" instead of "username"
-    failureFlash: true // Enable session-based error logging
-  }, wrap(localAuthHandler, {spread: true}))
-  let localSignupStrategy = new LocalStrategy({
-    usernameField: 'email',
-    failureFlash: true
-  }, wrap(localSignupHandler, {spread: true}))
+  // let localLoginStrategy = new LocalStrategy({
+  //   usernameField: 'email', // Use "email" instead of "username"
+  //   failureFlash: true // Enable session-based error logging
+  // }, wrap(localAuthHandler, {spread: true}))
+  //
+  // let localSignupStrategy = new LocalStrategy({
+  //   usernameField: 'email',
+  //   failureFlash: true
+  // }, wrap(localSignupHandler, {spread: true}))
 
-  passport.use('local-login', localLoginStrategy)
+// 3rd-party Auth Helper
+  function loadPassportStrategy(OauthStrategy, config, userField) {
+    config.passReqToCallback = true
+    passport.use(new OauthStrategy(config, wrap(authCB, { spread: true })))
+
+    async function authCB(req, token, _ignored_, account) {
+      let accountId = userField + '.id';
+
+      let user
+      console.log(req.user)
+      if (req.user) {
+        user = await User.promise.findById(req.user.id)
+      } else {
+        user = null
+      }
+
+      if (!user) user = new User();
+
+      user[userField].id = user.facebook.id;
+      user[userField].token = user.facebook.token;
+      user[userField].secret = _ignored_;
+      user[userField].name = user.facebook.name;
+      user[userField].email = "test@gmail.com";
+
+      return await user.save();
+    }
+  }
+  passport.use('local-login', localSigninStrategy)
   passport.use('local-signup', localSignupStrategy)
 
   /**
    * 3rd-Party Auth
    */
+  loadPassportStrategy(FacebookStrategy, {
+    clientID: "1850049045215527",
+    clientSecret: "34c8cceaf5dfe6c5f93bfe5051eff995",
+    callbackURL: "http://socialauthenticator.com:8000/auth/facebook/callback"
+  }, 'facebook')
 
-  // loadPassportStrategy(LinkedInStrategy, {...}, 'linkedin')
-  // loadPassportStrategy(FacebookStrategy, {...}, 'facebook')
-  // loadPassportStrategy(GoogleStrategy, {...}, 'google')
-  // loadPassportStrategy(TwitterStrategy, {...}, 'twitter')
 
   return passport
 }

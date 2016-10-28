@@ -5,13 +5,13 @@ let userSchema = mongoose.Schema({
     email: String,
     password: String
   },
-  /* TODO: Add social schemas
+  // Facebook user model
   facebook: {
-    id: ...,
-    token: ...,
-    ...
+    id: String,
+    token: String,
+    email: String,
+    name: String
   }
-  */
 })
 
 userSchema.methods.generateHash = async function(password) {
